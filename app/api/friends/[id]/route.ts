@@ -38,6 +38,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const isEnded = conversation.leftBy?.length > 0;
 
+    // Reset unread count for current user
+    if (!conversation.unreadCounts) conversation.unreadCounts = new Map();
+    conversation.unreadCounts.set(currentUser._id.toString(), 0);
+    await conversation.save();
+
     return NextResponse.json({
       metadata: { friend, currentUserId: currentUser._id, isEnded },
       messages
@@ -75,6 +80,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       senderId: currentUser._id,
       text
     });
+
+    const friendId = conversation.participants.find((p: any) => p.toString() !== currentUser._id.toString());
+    if (friendId) {
+      if (!conversation.unreadCounts) conversation.unreadCounts = new Map();
+      const currentCount = conversation.unreadCounts.get(friendId.toString()) || 0;
+      conversation.unreadCounts.set(friendId.toString(), currentCount + 1);
+    }
 
     conversation.lastMessage = text;
     conversation.lastMessageAt = new Date();

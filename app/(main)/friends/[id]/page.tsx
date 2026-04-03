@@ -25,6 +25,8 @@ export default function PersistentChatPage() {
   const [myId, setMyId] = useState<string>("");
   const [isRemoving, setIsRemoving] = useState(false);
   const [removedMessage, setRemovedMessage] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const socket = getSocket();
@@ -83,11 +85,26 @@ export default function PersistentChatPage() {
       setRemovedMessage("The person has ended the chat.");
     });
 
+    socket.on("user_typing", (data: { roomId: string }) => {
+      setIsTyping(true);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => setIsTyping(false), 2500);
+    });
+
     return () => {
       socket.off("receive_message");
       socket.off("friend_removed");
+      socket.off("user_typing");
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
   }, [conversationId, router, myId]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+    if (!removedMessage) {
+      socket.emit("typing", `conv:${conversationId}`);
+    }
+  };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,7 +205,9 @@ export default function PersistentChatPage() {
           </div>
           <div className="flex flex-col">
             <span className="font-semibold text-white text-sm tracking-tight">{friend?.anonId || "Missing"}</span>
-            <span className="text-[10px] text-zinc-500 font-medium">Friend Connection</span>
+            <span className="text-[10px] text-zinc-500 font-medium">
+              {isTyping ? <span className="text-blue-400 italic">Typing...</span> : "Friend Connection"}
+            </span>
           </div>
         </div>
         <button 
@@ -252,7 +271,7 @@ export default function PersistentChatPage() {
             <input
               type="text"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={handleInputChange}
               placeholder="Secure message..."
               className="flex-1 bg-transparent border-none focus:outline-none text-white text-sm px-4 placeholder:text-zinc-500 h-10 tracking-wide"
             />

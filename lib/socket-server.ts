@@ -99,7 +99,7 @@ export function setupSocketEvents(io: Server) {
     });
 
     socket.on("typing", (roomId: string) => {
-      socket.to(roomId).emit("user_typing");
+      socket.to(roomId).emit("user_typing", { roomId });
     });
 
     // --- STAGE 11: Add Friend Logic --- //

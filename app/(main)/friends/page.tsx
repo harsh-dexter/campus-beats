@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { User, MessageSquare, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { getSocket } from "@/lib/socket-client";
 
 interface FriendConversation {
   id: string;
@@ -15,6 +16,8 @@ interface FriendConversation {
   };
   lastMessage: string;
   lastMessageAt: string;
+  unreadCount?: number;
+  isTyping?: boolean;
 }
 
 export default function FriendsPage() {
@@ -27,10 +30,71 @@ export default function FriendsPage() {
       .then((data) => {
         if (Array.isArray(data)) {
           setConversations(data);
+          const socket = getSocket();
+          data.forEach(conv => socket.emit("join_conversation", conv.id));
         }
       })
       .catch((e) => console.error("Error loading friends list", e))
       .finally(() => setIsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const socket = getSocket();
+
+    const handleMessage = (data: any) => {
+      const convId = data.roomId?.replace('conv:', '');
+      setConversations(prev => {
+        const idx = prev.findIndex(c => c.id === convId);
+        if (idx === -1) return prev;
+        
+        const updated = [...prev];
+        updated[idx] = {
+          ...updated[idx],
+          lastMessage: data.text,
+          lastMessageAt: data.timestamp || new Date().toISOString(),
+          unreadCount: (updated[idx].unreadCount || 0) + 1,
+          isTyping: false
+        };
+        // Move to top
+        const item = updated.splice(idx, 1)[0];
+        return [item, ...updated];
+      });
+    };
+
+    const handleTyping = (data: { roomId: string }) => {
+      const convId = data.roomId?.replace('conv:', '');
+      setConversations(prev => {
+        const idx = prev.findIndex(c => c.id === convId);
+        if (idx === -1) return prev;
+        
+        const updated = [...prev];
+        updated[idx] = { ...updated[idx], isTyping: true };
+        return updated;
+      });
+
+      // Clear typing after 3 seconds
+      setTimeout(() => {
+        setConversations(prev => {
+          const idx = prev.findIndex(c => c.id === convId);
+          if (idx === -1) return prev;
+          
+          if (prev[idx].isTyping) {
+            const updated = [...prev];
+            updated[idx] = { ...updated[idx], isTyping: false };
+            return updated;
+          }
+          return prev;
+        });
+      }, 3000);
+    };
+
+    socket.on("receive_message", handleMessage);
+    socket.on("user_typing", handleTyping);
+
+    return () => {
+      socket.off("receive_message", handleMessage);
+      socket.off("user_typing", handleTyping);
+    };
   }, []);
 
   if (isLoading) {
@@ -87,16 +151,27 @@ export default function FriendsPage() {
                     )}
                   </div>
                   
-                  <div className="flex-1 overflow-hidden flex flex-col justify-center">
+                  <div className="flex-1 overflow-hidden flex flex-col justify-center relative">
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-semibold text-white truncate pr-2">{item.friend.anonId}</span>
                       <span className="text-[10px] text-zinc-500 shrink-0">
                         {new Date(item.lastMessageAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                       </span>
                     </div>
-                    <p className="text-sm text-zinc-400 truncate w-full">
-                      {item.lastMessage}
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <p className={`text-sm truncate w-full pr-4 ${item.unreadCount ? 'text-white font-medium' : 'text-zinc-400'}`}>
+                        {item.isTyping ? (
+                          <span className="text-blue-400 animate-pulse text-xs italic">Typing...</span>
+                        ) : (
+                          item.lastMessage
+                        )}
+                      </p>
+                      {item.unreadCount && item.unreadCount > 0 ? (
+                        <div className="h-5 min-w-5 px-1.5 rounded-full bg-blue-500 flex items-center justify-center text-[10px] font-bold text-white absolute right-0">
+                          {item.unreadCount}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 </Link>
               </motion.li>

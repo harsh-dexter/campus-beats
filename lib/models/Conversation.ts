@@ -5,6 +5,7 @@ export interface IConversation extends Document {
   leftBy: mongoose.Types.ObjectId[];
   lastMessage?: string;
   lastMessageAt?: Date;
+  unreadCounts?: Map<string, number>;
 }
 
 const ConversationSchema: Schema<IConversation> = new Schema(
@@ -13,6 +14,7 @@ const ConversationSchema: Schema<IConversation> = new Schema(
     leftBy: [{ type: Schema.Types.ObjectId, ref: "User", default: [] }],
     lastMessage: { type: String, default: "" },
     lastMessageAt: { type: Date, default: Date.now },
+    unreadCounts: { type: Map, of: Number, default: {} },
   },
   { timestamps: true }
 );

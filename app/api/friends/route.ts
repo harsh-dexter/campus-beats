@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
         friend,
         lastMessage: conv.lastMessage || "Say hello!",
         lastMessageAt: conv.lastMessageAt || conv.createdAt,
+        unreadCount: conv.unreadCounts ? (conv.unreadCounts[currentUser._id.toString()] || 0) : 0,
       };
     });
 
