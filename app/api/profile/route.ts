@@ -14,15 +14,25 @@ export async function GET(req: NextRequest) {
 
     await connectToDatabase();
 
-    const user = await User.findOne({ email: session.user.email })
-      .select("-email -_id") // Do not return email or internal _id to frontend
-      .populate("friends", "anonId avatar bio");
+    const includeFriends = req.nextUrl.searchParams.get("includeFriends") === "true";
+
+    let query = User.findOne({ email: session.user.email }).select("-email -_id");
+    
+    if (includeFriends) {
+      query = query.populate("friends", "anonId avatar bio");
+    }
+
+    const user = await query;
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json(user);
+    return NextResponse.json(user, {
+      headers: {
+        "Cache-Control": "private, max-age=60, stale-while-revalidate=300"
+      }
+    });
   } catch (error) {
     console.error("Profile GET Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

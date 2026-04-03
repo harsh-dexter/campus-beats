@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, Send, Flag, MapPin, User, MessageSquare, Loader2, AlertCircle } from "lucide-react";
 import { getSocket } from "@/lib/socket-client"; // Real socket client
@@ -14,16 +14,19 @@ interface Message {
   timestamp: Date;
 }
 
+let cachedProfile: { anonId: string; avatar: string } | null = null;
+
 export default function DiscoverPage() {
   const [matchState, setMatchState] = useState<MatchState>("idle");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
   const [peer, setPeer] = useState<{ anonId: string; avatar: string } | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [isReporting, setIsReporting] = useState(false);
   const [reportReason, setReportReason] = useState("");
   
-  const [myProfile, setMyProfile] = useState<{ anonId: string; avatar: string }>({ anonId: "Me", avatar: "" });
+  const [myProfile, setMyProfile] = useState<{ anonId: string; avatar: string }>(
+    cachedProfile || { anonId: "Me", avatar: "" }
+  );
   
   const [friendReqSent, setFriendReqSent] = useState(false);
   const [friendReqReceived, setFriendReqReceived] = useState(false);
@@ -33,11 +36,14 @@ export default function DiscoverPage() {
 
   // Load current user profile quickly to send in queue metadata
   useEffect(() => {
+    if (cachedProfile) return;
+
     fetch("/api/profile")
       .then(res => res.json())
       .then(data => {
         if(data && data.anonId) {
-          setMyProfile({ anonId: data.anonId, avatar: data.avatar });
+          cachedProfile = { anonId: data.anonId, avatar: data.avatar };
+          setMyProfile(cachedProfile);
         }
       }).catch(e => console.error(e));
   }, []);
@@ -140,7 +146,6 @@ export default function DiscoverPage() {
     setPeer(null);
     setRoomId(null);
     setMessages([]);
-    setInput("");
     setIsReporting(false);
   };
 
@@ -161,13 +166,12 @@ export default function DiscoverPage() {
     setIsReporting(false);
   };
 
-  const handleSendMessage = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!input.trim() || !roomId) return;
+  const handleSendMessage = (message: string) => {
+    if (!message.trim() || !roomId) return;
     
     const newMsg: Message = {
       id: Date.now().toString(),
-      text: input,
+      text: message,
       sender: "me",
       timestamp: new Date(),
     };
@@ -177,11 +181,9 @@ export default function DiscoverPage() {
     // Broadcast via actual socket to the room
     socket.emit("send_message", {
       roomId,
-      text: input,
+      text: message,
       senderId: socket.id
     });
-    
-    setInput("");
   };
 
   // Shared framer motion variants
@@ -347,70 +349,14 @@ export default function DiscoverPage() {
                 </span>
               </div>
               
-              {messages.map((msg) => {
-                const isMe = msg.sender === "me";
-                const isSystem = msg.sender === "system";
-
-                if (isSystem) {
-                  return (
-                    <motion.div 
-                      key={msg.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="flex justify-center w-full my-2"
-                    >
-                      <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5">
-                        <AlertCircle className="h-3 w-3" />
-                        {msg.text}
-                      </div>
-                    </motion.div>
-                  );
-                }
-
-                return (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    className={`flex ${isMe ? "justify-end" : "justify-start"} w-full`} 
-                    key={msg.id}
-                  >
-                    <div className={`
-                      max-w-[75%] px-4 py-2.5 rounded-2xl text-[15px] leading-relaxed
-                      ${isMe 
-                        ? "bg-white text-black rounded-br-sm" 
-                        : "bg-zinc-800 text-white rounded-bl-sm border border-white/5"
-                      }
-                    `}>
-                      {msg.text}
-                    </div>
-                  </motion.div>
-                );
-              })}
+              {messages.map((msg) => (
+                <MessageItem key={msg.id} msg={msg} />
+              ))}
               <div ref={messagesEndRef} />
             </div>
 
-              {/* Chat Input */}
-            <div className="shrink-0 p-4 bg-gradient-to-t from-black via-black to-transparent">
-              <form 
-                onSubmit={handleSendMessage}
-                className="flex items-center gap-2 bg-zinc-900 border border-white/10 rounded-full p-1.5 shadow-xl"
-              >
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Type a message..."
-                  className="flex-1 bg-transparent border-none focus:outline-none text-white text-sm px-4 placeholder:text-zinc-500 h-9"
-                />
-                <button 
-                  type="submit"
-                  disabled={!input.trim()}
-                  className="h-9 w-9 rounded-full bg-white text-black flex items-center justify-center shrink-0 disabled:opacity-50 disabled:bg-zinc-800 disabled:text-zinc-500 transition-all"
-                >
-                  <Send className="h-4 w-4 ml-0.5" />
-                </button>
-              </form>
-            </div>
+            <ChatInput onSendMessage={handleSendMessage} />
+
             {/* Report Modal */}
             <AnimatePresence>
               {isReporting && peer && (
@@ -463,6 +409,81 @@ export default function DiscoverPage() {
         )}
         
       </AnimatePresence>
+    </div>
+  );
+}
+
+const MessageItem = React.memo(({ msg }: { msg: Message }) => {
+  const isMe = msg.sender === "me";
+  const isSystem = msg.sender === "system";
+
+  if (isSystem) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="flex justify-center w-full my-2"
+      >
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5">
+          <AlertCircle className="h-3 w-3" />
+          {msg.text}
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      className={`flex ${isMe ? "justify-end" : "justify-start"} w-full`} 
+    >
+      <div className={`
+        max-w-[75%] px-4 py-2.5 rounded-2xl text-[15px] leading-relaxed
+        ${isMe 
+          ? "bg-white text-black rounded-br-sm" 
+          : "bg-zinc-800 text-white rounded-bl-sm border border-white/5"
+        }
+      `}>
+        {msg.text}
+      </div>
+    </motion.div>
+  );
+});
+
+MessageItem.displayName = "MessageItem";
+
+function ChatInput({ onSendMessage }: { onSendMessage: (msg: string) => void }) {
+  const [input, setInput] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+    onSendMessage(input);
+    setInput("");
+  };
+
+  return (
+    <div className="shrink-0 p-4 bg-gradient-to-t from-black via-black to-transparent">
+      <form 
+        onSubmit={handleSubmit}
+        className="flex items-center gap-2 bg-zinc-900 border border-white/10 rounded-full p-1.5 shadow-xl"
+      >
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Type a message..."
+          className="flex-1 bg-transparent border-none focus:outline-none text-white text-sm px-4 placeholder:text-zinc-500 h-9"
+        />
+        <button 
+          type="submit"
+          disabled={!input.trim()}
+          className="h-9 w-9 rounded-full bg-white text-black flex items-center justify-center shrink-0 disabled:opacity-50 disabled:bg-zinc-800 disabled:text-zinc-500 transition-all"
+        >
+          <Send className="h-4 w-4 ml-0.5" />
+        </button>
+      </form>
     </div>
   );
 }
