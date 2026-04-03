@@ -20,15 +20,18 @@ interface FriendConversation {
   isTyping?: boolean;
 }
 
+let cachedConversations: FriendConversation[] | null = null;
+
 export default function FriendsPage() {
-  const [conversations, setConversations] = useState<FriendConversation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [conversations, setConversations] = useState<FriendConversation[]>(cachedConversations || []);
+  const [isLoading, setIsLoading] = useState(!cachedConversations);
 
   useEffect(() => {
     fetch("/api/friends")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
+          cachedConversations = data;
           setConversations(data);
           const socket = getSocket();
           data.forEach(conv => socket.emit("join_conversation", conv.id));
@@ -99,14 +102,14 @@ export default function FriendsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         <Loader2 className="h-8 w-8 text-zinc-500 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-6 pb-24">
+    <div className="min-h-full p-6">
       <header className="mb-6 mt-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white tracking-tight">Friends</h1>
         <div className="flex items-center gap-2 rounded-full bg-zinc-900 border border-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-400">

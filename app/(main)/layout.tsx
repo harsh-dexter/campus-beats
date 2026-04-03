@@ -15,14 +15,12 @@ export default async function MainLayout({
   }
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100 selection:bg-zinc-800 font-sans pb-20 md:pb-0">
+    <div className="h-[100dvh] bg-black text-zinc-100 selection:bg-zinc-800 font-sans flex flex-col overflow-hidden">
       {/* 
         pb-20 adds padding to the bottom so last elements 
         aren't hidden by the fixed mobile nav. 
-        On desktop (md:pb-0), if we adjust the layout further, 
-        we can change it, but for mobile-first this serves well.
       */}
-      <main className="mx-auto max-w-md min-h-screen relative shadow-2xl bg-[#09090b] sm:border-x sm:border-white/5">
+      <main className="flex-1 overflow-y-auto mx-auto max-w-md w-full relative shadow-2xl bg-[#09090b] sm:border-x sm:border-white/5 pb-20 md:pb-0">
         {children}
       </main>
       

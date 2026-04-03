@@ -41,6 +41,7 @@ export function BottomNav() {
               <li key={tab.name}>
                 <Link
                   href={tab.href}
+                  prefetch={true}
                   className={`
                     group flex flex-col items-center justify-center w-16 h-14 rounded-2xl
                     transition-all duration-300 ease-spring 

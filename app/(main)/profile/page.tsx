@@ -4,29 +4,32 @@ import { useState, useEffect, useRef } from "react";
 import { signOut } from "next-auth/react";
 import { Camera, RefreshCw, Save, Loader2, LogOut } from "lucide-react";
 
+let cachedProfile: any = null;
+
 export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!cachedProfile);
   const [isSaving, setIsSaving] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
-  const [profile, setProfile] = useState({
+  const [profile, setProfile] = useState<{anonId: string; bio: string; avatar: string}>(cachedProfile || {
     anonId: "",
     bio: "",
     avatar: "",
   });
 
   useEffect(() => {
-    // In a real app, this would fetch from /api/profile
+    // Fetch from /api/profile
     const fetchProfile = async () => {
       try {
         const res = await fetch("/api/profile");
         if (res.ok) {
           const data = await res.json();
-          setProfile({
-            anonId: data.anonId || "BraveLion123",
+          cachedProfile = {
+            anonId: data.anonId || "",
             bio: data.bio || "",
             avatar: data.avatar || "",
-          });
+          };
+          setProfile(cachedProfile);
         }
       } catch (error) {
         console.error("Failed to fetch profile", error);
@@ -71,7 +74,7 @@ export default function ProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(profile),
       });
-      // Show success toast here
+      cachedProfile = profile;
     } catch (error) {
       console.error("Failed to save profile", error);
     } finally {
@@ -81,14 +84,14 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-6 pb-24">
+    <div className="min-h-full p-6">
       <header className="mb-8 mt-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Profile</h1>
         <div className="flex items-center gap-3">

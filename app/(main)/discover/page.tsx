@@ -192,7 +192,7 @@ export default function DiscoverPage() {
   };
 
   return (
-    <div className="relative flex flex-col h-screen overflow-hidden pb-20">
+    <div className="relative flex flex-col h-full bg-black overflow-hidden">
       
       <AnimatePresence mode="wait">
         
@@ -283,7 +283,7 @@ export default function DiscoverPage() {
             className="flex-1 flex flex-col h-full bg-black"
           >
             {/* Chat header */}
-            <header className="flex items-center justify-between px-4 py-4 border-b border-white/5 bg-zinc-900/50 backdrop-blur-md sticky top-0 z-10">
+            <header className="flex shrink-0 items-center justify-between px-4 py-4 border-b border-white/5 bg-zinc-900/50 backdrop-blur-md sticky top-0 z-10">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-zinc-800 flex items-center justify-center text-white ring-2 ring-white/10 shrink-0">
                   {peer.avatar ? (
@@ -389,8 +389,8 @@ export default function DiscoverPage() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Chat Input */}
-            <div className="p-4 bg-gradient-to-t from-black via-black to-transparent">
+              {/* Chat Input */}
+            <div className="shrink-0 p-4 bg-gradient-to-t from-black via-black to-transparent">
               <form 
                 onSubmit={handleSendMessage}
                 className="flex items-center gap-2 bg-zinc-900 border border-white/10 rounded-full p-1.5 shadow-xl"

@@ -170,7 +170,7 @@ export default function PersistentChatPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen flex-col bg-black">
+      <div className="flex h-full flex-col bg-black">
          <header className="flex items-center gap-4 px-4 py-4 border-b border-white/5 bg-zinc-900/50 backdrop-blur-md">
             <button onClick={() => router.back()} className="rounded-full bg-zinc-800 p-2 text-zinc-400">
               <ArrowLeft className="h-5 w-5" />
@@ -185,10 +185,10 @@ export default function PersistentChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-black pb-20">
+    <div className="flex flex-col h-full bg-black relative">
       
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-4 border-b border-white/5 bg-zinc-900/50 backdrop-blur-md sticky top-0 z-10">
+      <header className="flex shrink-0 items-center justify-between px-4 py-4 border-b border-white/5 bg-zinc-900/50 backdrop-blur-md sticky top-0 z-10">
         <div className="flex items-center gap-3">
           <button 
             onClick={() => router.back()} 
@@ -258,7 +258,7 @@ export default function PersistentChatPage() {
       </div>
 
       {/* Input */}
-      <div className="p-4 bg-gradient-to-t from-black via-black to-transparent">
+      <div className="shrink-0 p-4 bg-gradient-to-t from-black via-black to-transparent">
         {removedMessage ? (
           <div className="flex justify-center flex-col items-center bg-zinc-900 border border-white/10 rounded-full p-4 shadow-2xl">
             <span className="text-zinc-400 font-medium text-sm">{removedMessage}</span>
