@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Send, ArrowLeft, Loader2, User } from "lucide-react";
+import { Send, ArrowLeft, Loader2, User, UserMinus } from "lucide-react";
 import { getSocket } from "@/lib/socket-client";
 
 interface Message {
@@ -23,6 +23,8 @@ export default function PersistentChatPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [friend, setFriend] = useState<{ anonId: string; avatar: string; _id: string } | null>(null);
   const [myId, setMyId] = useState<string>("");
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [removedMessage, setRemovedMessage] = useState("");
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const socket = getSocket();
@@ -44,6 +46,9 @@ export default function PersistentChatPage() {
         if(data && data.metadata) {
           setFriend(data.metadata.friend);
           setMyId(data.metadata.currentUserId);
+          if (data.metadata.isEnded) {
+            setRemovedMessage("The person has ended the chat.");
+          }
         }
         if(data && data.messages) {
           setMessages(data.messages);
@@ -74,8 +79,13 @@ export default function PersistentChatPage() {
       }
     });
 
+    socket.on("friend_removed", () => {
+      setRemovedMessage("The person has ended the chat.");
+    });
+
     return () => {
       socket.off("receive_message");
+      socket.off("friend_removed");
     };
   }, [conversationId, router, myId]);
 
@@ -114,6 +124,30 @@ export default function PersistentChatPage() {
       
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleRemoveFriend = async () => {
+    const msg = removedMessage ? 
+      "Delete this conversation permanently from your inbox?" : 
+      "Are you sure you want to end this chat and remove this person as a friend? The other person will still see the chat history until they remove it.";
+    if (!confirm(msg)) return;
+    setIsRemoving(true);
+    try {
+      const res = await fetch(`/api/friends/${conversationId}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) throw new Error("Failed to remove friend");
+      
+      // Notify the other user
+      socket.emit("friend_removed", { roomId: `conv:${conversationId}` });
+      
+      // Redirect back
+      router.push("/friends");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to remove friend.");
+      setIsRemoving(false);
     }
   };
 
@@ -157,6 +191,14 @@ export default function PersistentChatPage() {
             <span className="text-[10px] text-zinc-500 font-medium">Friend Connection</span>
           </div>
         </div>
+        <button 
+          onClick={handleRemoveFriend} 
+          disabled={isRemoving}
+          className="rounded-full bg-red-500/10 p-2 text-red-500 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+          title="Remove Friend & End Chat"
+        >
+          {isRemoving ? <Loader2 className="h-5 w-5 animate-spin" /> : <UserMinus className="h-5 w-5" />}
+        </button>
       </header>
 
       {/* Messages */}
@@ -198,25 +240,31 @@ export default function PersistentChatPage() {
 
       {/* Input */}
       <div className="p-4 bg-gradient-to-t from-black via-black to-transparent">
-        <form 
-          onSubmit={handleSendMessage}
-          className="flex items-center gap-2 bg-zinc-900 border border-white/10 rounded-full p-1.5 shadow-2xl"
-        >
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Secure message..."
-            className="flex-1 bg-transparent border-none focus:outline-none text-white text-sm px-4 placeholder:text-zinc-500 h-10 tracking-wide"
-          />
-          <button 
-            type="submit"
-            disabled={!input.trim()}
-            className="h-10 w-10 rounded-full bg-white text-black flex flex-col items-center justify-center shrink-0 disabled:opacity-50 disabled:bg-zinc-800 disabled:text-zinc-500 transition-all hover:scale-105 active:scale-95"
+        {removedMessage ? (
+          <div className="flex justify-center flex-col items-center bg-zinc-900 border border-white/10 rounded-full p-4 shadow-2xl">
+            <span className="text-zinc-400 font-medium text-sm">{removedMessage}</span>
+          </div>
+        ) : (
+          <form 
+            onSubmit={handleSendMessage}
+            className="flex items-center gap-2 bg-zinc-900 border border-white/10 rounded-full p-1.5 shadow-2xl"
           >
-            <Send className="h-4 w-4 ml-0.5" />
-          </button>
-        </form>
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Secure message..."
+              className="flex-1 bg-transparent border-none focus:outline-none text-white text-sm px-4 placeholder:text-zinc-500 h-10 tracking-wide"
+            />
+            <button 
+              type="submit"
+              disabled={!input.trim()}
+              className="h-10 w-10 rounded-full bg-white text-black flex flex-col items-center justify-center shrink-0 disabled:opacity-50 disabled:bg-zinc-800 disabled:text-zinc-500 transition-all hover:scale-105 active:scale-95"
+            >
+              <Send className="h-4 w-4 ml-0.5" />
+            </button>
+          </form>
+        )}
       </div>
       
     </div>

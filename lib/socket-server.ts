@@ -177,6 +177,11 @@ export function setupSocketEvents(io: Server) {
       await redis.del(`friend_req:${roomId}`);
     });
 
+    socket.on("friend_removed", (data: { roomId: string }) => {
+      socket.to(data.roomId).emit("friend_removed");
+      io.socketsLeave(data.roomId);
+    });
+
     socket.on("report_user", async (data: { roomId: string; reporterAnonId: string; reportedAnonId: string; reason: string }) => {
       try {
         await connectToDatabase();

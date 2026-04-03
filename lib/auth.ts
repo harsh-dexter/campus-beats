@@ -22,7 +22,12 @@ export const authOptions: AuthOptions = {
       if (account?.provider === "google") {
         const email = user.email;
 
-        if (!email || !email.endsWith(`@${ALLOWED_DOMAIN}`)) {
+        // if (!email || !email.endsWith(`@${ALLOWED_DOMAIN}`)) {
+        //   // Returning false or a completely custom URL redirects to error page
+        //   return `/auth/error?error=AccessDenied`;
+        // }
+
+        if (!email) {
           // Returning false or a completely custom URL redirects to error page
           return `/auth/error?error=AccessDenied`;
         }

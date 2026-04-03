@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
     // Load active persistent conversations that contain this user
     const conversations = await Conversation.find({
       participants: currentUser._id,
+      leftBy: { $ne: currentUser._id }
     })
       .populate("participants", "anonId avatar bio")
       .sort({ lastMessageAt: -1 })

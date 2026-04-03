@@ -2,6 +2,7 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface IConversation extends Document {
   participants: mongoose.Types.ObjectId[];
+  leftBy: mongoose.Types.ObjectId[];
   lastMessage?: string;
   lastMessageAt?: Date;
 }
@@ -9,6 +10,7 @@ export interface IConversation extends Document {
 const ConversationSchema: Schema<IConversation> = new Schema(
   {
     participants: [{ type: Schema.Types.ObjectId, ref: "User", required: true }],
+    leftBy: [{ type: Schema.Types.ObjectId, ref: "User", default: [] }],
     lastMessage: { type: String, default: "" },
     lastMessageAt: { type: Date, default: Date.now },
   },
