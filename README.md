@@ -1,12 +1,12 @@
-# Campus Beats
+# Klymo Chat
 
-Campus Beats is a real-time, scalable matchmaking and persistent messaging platform built for campus students. It features instant peer-to-peer ephemeral chats, friend adding capabilities, read receipts, real-time typing indicators, and secure conversation histories.
+Klymo Chat is a real-time, scalable matchmaking and persistent messaging platform built for campus students. It features instant peer-to-peer ephemeral chats, friend adding capabilities, read receipts, real-time typing indicators, and secure conversation histories.
 
 ---
 
 ## 🏗 System Architecture
 
-Campus Beats utilizes a single-server, tightly-integrated monolith architecture merging **Next.js App Router (SSR/API)** and **Node.js WebSockets (Socket.IO)** to provide lightning-fast, stateful connections alongside SEO-friendly pages.
+Klymo Chat utilizes a single-server, tightly-integrated monolith architecture merging **Next.js App Router (SSR/API)** and **Node.js WebSockets (Socket.IO)** to provide lightning-fast, stateful connections alongside SEO-friendly pages.
 
 ### Tech Stack
 - **Frontend & API:** Next.js 14 (App Router), React, Tailwind CSS, Framer Motion
@@ -59,6 +59,8 @@ GOOGLE_CLIENT_SECRET=your-google-secret
 
 MONGODB_URI=mongodb://localhost:27017/campus-beats
 REDIS_URL=redis://localhost:6379
+
+CLOUDINARY_URL=cloudinary://<key>:<secret>@<cloud_name>
 ```
 
 ### 3. Start the Custom Server
@@ -73,6 +75,8 @@ Navigate to `http://localhost:3000`. You're live!
 
 ---
 
-## 🔒 Future Scalability Options
-- Need to scale beyond ~5,000 WebSocket connections? Add `@socket.io/redis-adapter` to multi-tenant the `server.ts` monolith.
-- Avatars are currently stored in Mongo as `Base64` strings for agility. Shift these entirely to an **Amazon S3** bucket referencing short URL Strings when upgrading to full production!
+## 🔒 Scalability & Optimizations Implemented
+- **Multi-Node WebSocket Support:** Fully integrates `@socket.io/redis-adapter` for scaling WebSockets across multiple stateless server instances dynamically.
+- **Optimized Media Delivery:** Avatars bypass document bloat by utilizing Cloudinary direct URL hosting rather than Base64 strings.
+- **High-Performance MongoDB:** Relies heavily on atomic `$inc` updates and compound indexing for rapid chat message lookups.
+- **Debounced Analytics:** Features auto-throttled WebSocket `.emit("typing")` rates protecting core bandwidth infrastructure.
