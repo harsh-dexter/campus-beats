@@ -1,44 +1,34 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import { Camera, RefreshCw, Save, Loader2, LogOut } from "lucide-react";
+import useSWR from "swr";
 
-let cachedProfile: any = null;
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isLoading, setIsLoading] = useState(!cachedProfile);
+  
+  const { data: serverProfile, error, mutate, isLoading } = useSWR("/api/profile", fetcher);
+  
   const [isSaving, setIsSaving] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
-  const [profile, setProfile] = useState<{anonId: string; bio: string; avatar: string}>(cachedProfile || {
+  const [profile, setProfile] = useState<{anonId: string; bio: string; avatar: string}>({
     anonId: "",
     bio: "",
     avatar: "",
   });
 
   useEffect(() => {
-    // Fetch from /api/profile
-    const fetchProfile = async () => {
-      try {
-        const res = await fetch("/api/profile");
-        if (res.ok) {
-          const data = await res.json();
-          cachedProfile = {
-            anonId: data.anonId || "",
-            bio: data.bio || "",
-            avatar: data.avatar || "",
-          };
-          setProfile(cachedProfile);
-        }
-      } catch (error) {
-        console.error("Failed to fetch profile", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchProfile();
-  }, []);
+    if (serverProfile) {
+      setProfile({
+        anonId: serverProfile.anonId || "",
+        bio: serverProfile.bio || "",
+        avatar: serverProfile.avatar || "",
+      });
+    }
+  }, [serverProfile]);
 
   const handleImageUpload = (file: File | undefined) => {
     if (!file) return;
@@ -69,12 +59,14 @@ export default function ProfilePage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await fetch("/api/profile", {
+      const res = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(profile),
       });
-      cachedProfile = profile;
+      if (res.ok) {
+        mutate(await res.json(), false);
+      }
     } catch (error) {
       console.error("Failed to save profile", error);
     } finally {

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Send, ArrowLeft, Loader2, User, UserMinus } from "lucide-react";
 import { getSocket } from "@/lib/socket-client";
+import { useDebouncedCallback } from "use-debounce";
 
 interface Message {
   _id: string;
@@ -28,13 +29,68 @@ export default function PersistentChatPage() {
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const observerTarget = useRef<HTMLDivElement>(null);
   const socket = getSocket();
 
+  const fetchMoreMessages = useCallback(async () => {
+    if (!conversationId || isFetchingMore || !hasMore || messages.length === 0) return;
+    
+    setIsFetchingMore(true);
+    const oldestMessageId = messages[0]._id;
+
+    try {
+      const container = scrollContainerRef.current;
+      const previousScrollHeight = container ? container.scrollHeight : 0;
+
+      const res = await fetch(`/api/friends/${conversationId}?cursor=${oldestMessageId}`);
+      if (!res.ok) throw new Error("Failed to fetch more messages");
+      
+      const data = await res.json();
+      const olderMessages = data.messages || [];
+      
+      if (olderMessages.length < 100) {
+        setHasMore(false);
+      }
+
+      setMessages((prev) => [...olderMessages, ...prev]);
+
+      if (container) {
+        // adjust scroll position after DOM update so user's viewport doesn't jump
+        setTimeout(() => {
+          container.scrollTop = container.scrollHeight - previousScrollHeight;
+        }, 0);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsFetchingMore(false);
+    }
+  }, [conversationId, isFetchingMore, hasMore, messages]);
+
   useEffect(() => {
-    // Scroll to bottom when messages update
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isFetchingMore && messages.length > 0) {
+          fetchMoreMessages();
+        }
+      },
+      { root: scrollContainerRef.current, threshold: 0.1 }
+    );
+
+    const target = observerTarget.current;
+    if (target) {
+      observer.observe(target);
+    }
+
+    return () => {
+      if (target) observer.unobserve(target);
+    };
+  }, [fetchMoreMessages, hasMore, isFetchingMore, messages.length]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -54,6 +110,10 @@ export default function PersistentChatPage() {
         }
         if(data && data.messages) {
           setMessages(data.messages);
+          if (data.messages.length < 100) setHasMore(false);
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+          }, 100);
         }
       })
       .catch((e) => {
@@ -78,6 +138,9 @@ export default function PersistentChatPage() {
       // Prevent duplicates by ensuring sender != self
       if(standardizedMessage.senderId !== myId) {
         setMessages((prev) => [...prev, standardizedMessage]);
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
       }
     });
 
@@ -99,10 +162,14 @@ export default function PersistentChatPage() {
     };
   }, [conversationId, router, myId]);
 
+  const emitTyping = useDebouncedCallback(() => {
+    socket.emit("typing", `conv:${conversationId}`);
+  }, 1000, { leading: true, trailing: false });
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
     if (!removedMessage) {
-      socket.emit("typing", `conv:${conversationId}`);
+      emitTyping();
     }
   };
 
@@ -119,6 +186,9 @@ export default function PersistentChatPage() {
     
     setInput("");
     setMessages((prev) => [...prev, optimisticMsg]);
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
 
     try {
       const res = await fetch(`/api/friends/${conversationId}`, {
@@ -221,8 +291,14 @@ export default function PersistentChatPage() {
       </header>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-        {messages.length === 0 ? (
+      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4" ref={scrollContainerRef}>
+        {hasMore && (
+          <div ref={observerTarget} className="h-4 w-full flex justify-center pb-2">
+            {isFetchingMore && <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />}
+          </div>
+        )}
+        
+        {messages.length === 0 && !hasMore ? (
           <div className="flex justify-center mb-8">
             <span className="px-4 py-2 rounded-full bg-white/5 border border-white/5 text-zinc-500 text-xs font-medium">
               Start chatting. Messages are secured here securely.

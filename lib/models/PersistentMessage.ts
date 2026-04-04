@@ -14,6 +14,8 @@ const PersistentMessageSchema: Schema<IPersistentMessage> = new Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+PersistentMessageSchema.index({ conversationId: 1, createdAt: 1 });
+
 export const PersistentMessage: Model<IPersistentMessage> =
   mongoose.models.PersistentMessage ||
   mongoose.model<IPersistentMessage>("PersistentMessage", PersistentMessageSchema);

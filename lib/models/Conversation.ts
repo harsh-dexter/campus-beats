@@ -19,6 +19,8 @@ const ConversationSchema: Schema<IConversation> = new Schema(
   { timestamps: true }
 );
 
+ConversationSchema.index({ participants: 1, lastMessageAt: -1 });
+
 export const Conversation: Model<IConversation> =
   mongoose.models.Conversation ||
   mongoose.model<IConversation>("Conversation", ConversationSchema);

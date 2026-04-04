@@ -5,6 +5,9 @@ import Link from "next/link";
 import { User, MessageSquare, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getSocket } from "@/lib/socket-client";
+import useSWR from "swr";
+
+const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 interface FriendConversation {
   id: string;
@@ -20,26 +23,18 @@ interface FriendConversation {
   isTyping?: boolean;
 }
 
-let cachedConversations: FriendConversation[] | null = null;
-
 export default function FriendsPage() {
-  const [conversations, setConversations] = useState<FriendConversation[]>(cachedConversations || []);
-  const [isLoading, setIsLoading] = useState(!cachedConversations);
+  const { data: initialConversations, error, isValidating } = useSWR<FriendConversation[]>("/api/friends", fetcher);
+  const [conversations, setConversations] = useState<FriendConversation[]>([]);
+  const isLoading = isValidating && !initialConversations;
 
   useEffect(() => {
-    fetch("/api/friends")
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          cachedConversations = data;
-          setConversations(data);
-          const socket = getSocket();
-          data.forEach(conv => socket.emit("join_conversation", conv.id));
-        }
-      })
-      .catch((e) => console.error("Error loading friends list", e))
-      .finally(() => setIsLoading(false));
-  }, []);
+    if (initialConversations) {
+      setConversations(initialConversations);
+      const socket = getSocket();
+      initialConversations.forEach(conv => socket.emit("join_conversation", conv.id));
+    }
+  }, [initialConversations]);
 
   useEffect(() => {
     const socket = getSocket();

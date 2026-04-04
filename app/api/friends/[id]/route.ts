@@ -26,11 +26,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     if (!conversation) return NextResponse.json({ error: "Not Found" }, { status: 404 });
 
+    const cursor = req.nextUrl.searchParams.get("cursor");
+    const query: any = { conversationId };
+    
+    if (cursor) {
+      query._id = { $lt: cursor };
+    }
+
     // Fetch messages
-    const messages = await PersistentMessage.find({ conversationId })
-      .sort({ createdAt: 1 })
+    const messages = await PersistentMessage.find(query)
+      .sort({ _id: -1 })
       .limit(100)
       .lean();
+      
+    // Reverse to return them in chronological order
+    messages.reverse();
 
     // Map the friend details
     let friend = conversation.participants.find((p: any) => p._id.toString() !== currentUser._id.toString());
@@ -38,10 +48,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const isEnded = conversation.leftBy?.length > 0;
 
-    // Reset unread count for current user
-    if (!conversation.unreadCounts) conversation.unreadCounts = new Map();
-    conversation.unreadCounts.set(currentUser._id.toString(), 0);
-    await conversation.save();
+    // Reset unread count for current user atomically
+    await Conversation.updateOne(
+      { _id: conversation._id },
+      { $set: { [`unreadCounts.${currentUser._id.toString()}`]: 0 } }
+    );
 
     return NextResponse.json({
       metadata: { friend, currentUserId: currentUser._id, isEnded },
@@ -82,15 +93,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
 
     const friendId = conversation.participants.find((p: any) => p.toString() !== currentUser._id.toString());
+    
+    const updateQuery: any = {
+      $set: { lastMessage: text, lastMessageAt: new Date() }
+    };
+
     if (friendId) {
-      if (!conversation.unreadCounts) conversation.unreadCounts = new Map();
-      const currentCount = conversation.unreadCounts.get(friendId.toString()) || 0;
-      conversation.unreadCounts.set(friendId.toString(), currentCount + 1);
+      updateQuery.$inc = { [`unreadCounts.${friendId.toString()}`]: 1 };
     }
 
-    conversation.lastMessage = text;
-    conversation.lastMessageAt = new Date();
-    await conversation.save();
+    await Conversation.updateOne({ _id: conversation._id }, updateQuery);
 
     return NextResponse.json(newMsg);
   } catch (e) {

@@ -95,6 +95,11 @@ export default function DiscoverPage() {
        handleDisconnect(true);
     });
 
+    socket.on("match_skipped_already_friends", () => {
+      // Re-trigger search implicitly
+      socket.emit("join_queue", myProfile);
+    });
+
     socket.on("system_warning", (data: { message: string }) => {
       setMessages((prev) => [
         ...prev,
@@ -113,9 +118,10 @@ export default function DiscoverPage() {
       socket.off("match_ended");
       socket.off("friend_request_received");
       socket.off("friendship_created");
+      socket.off("match_skipped_already_friends");
       socket.off("system_warning");
     };
-  }, []);
+  }, [myProfile]);
 
   // Auto-scroll to bottom of chat
   useEffect(() => {

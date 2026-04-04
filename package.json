@@ -12,6 +12,7 @@
     "@types/node": "^25.5.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "cloudinary": "^2.9.0",
     "dotenv": "^17.4.0",
     "framer-motion": "^12.38.0",
     "ioredis": "^5.10.1",
@@ -23,8 +24,10 @@
     "react-dom": "19.2.4",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
+    "swr": "^2.4.1",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.2",
+    "use-debounce": "^10.1.1",
     "uuid": "^13.0.0"
   },
   "devDependencies": {

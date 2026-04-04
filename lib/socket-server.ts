@@ -39,27 +39,32 @@ export function setupSocketEvents(io: Server) {
             if (user1Str && user2Str) {
               const user1 = JSON.parse(user1Str);
               const user2 = JSON.parse(user2Str);
+
+              await connectToDatabase();
+              const dbUser1 = await User.findOne({ anonId: user1.anonId }).select('friends');
+              const dbUser2 = await User.findOne({ anonId: user2.anonId }).select('_id');
+
+              // Prevent matching if they are already friends
+              if (dbUser1 && dbUser2 && dbUser1.friends.includes(dbUser2._id)) {
+                io.to(socketId1).emit("match_skipped_already_friends");
+                io.to(socketId2).emit("match_skipped_already_friends");
+                return;
+              }
               
               const roomId = uuidv4();
               
-              // Force sockets to join the room
-              const sockets = await io.fetchSockets();
-              const s1 = sockets.find((s) => s.id === socketId1);
-              const s2 = sockets.find((s) => s.id === socketId2);
+              // Force sockets to join the room across all nodes using Redis adapter
+              io.in(socketId1).socketsJoin(roomId);
+              io.in(socketId2).socketsJoin(roomId);
 
-              if (s1 && s2) {
-                s1.join(roomId);
-                s2.join(roomId);
+              // Emit match event uniquely to each user
+              io.to(socketId1).emit("match_found", { roomId, peer: user2 });
+              io.to(socketId2).emit("match_found", { roomId, peer: user1 });
 
-                // Emit match event
-                s1.emit("match_found", { roomId, peer: user2 });
-                s2.emit("match_found", { roomId, peer: user1 });
-
-                // Map users to current room
-                await redis.set(`active_room:${socketId1}`, roomId, "EX", 3600);
-                await redis.set(`active_room:${socketId2}`, roomId, "EX", 3600);
-                console.log(`[Matched] ${user1.anonId} & ${user2.anonId} in ${roomId}`);
-              }
+              // Map users to current room
+              await redis.set(`active_room:${socketId1}`, roomId, "EX", 3600);
+              await redis.set(`active_room:${socketId2}`, roomId, "EX", 3600);
+              console.log(`[Matched] ${user1.anonId} & ${user2.anonId} in ${roomId}`);
             }
           } catch (e) {
             console.error("[Matching Error]", e);
