@@ -19,7 +19,7 @@ export default function LoginPage() {
           <Headphones className="h-8 w-8 text-black" />
         </div>
         
-        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Campus Beats</h1>
+        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Klymo Chat</h1>
         <p className="text-zinc-400 mb-10 text-sm">Connect securely with verified peers on campus.</p>
         
         <button 

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Campus Beats",
+  title: "Klymo Chat",
   description: "Next.js 14 App Router project",
 };
 
